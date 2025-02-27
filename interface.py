@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 username = ""
 password = ""
+history= "history.txt"
 
 def authenticate():
     global username, password
@@ -37,9 +38,18 @@ def send_message():
     global username, password
     message = entry_field.get()
     if message.strip():
-        chat_display.insert(tk.END, f"{username}[{datetime.now().strftime("%d/%m/%Y - %H:%M")}]: {message}\n")
+        timestamp = datetime.now().strftime("%d/%m/%Y - %H:%M")
+        formatted_message = f"{username}[{timestamp}]: {message}\n"
+        chat_display.insert(tk.END, formatted_message)
         entry_field.delete(0, tk.END)
         chat_display.yview(tk.END)
+
+        save_chat(formatted_message)
+
+def save_chat(message):
+    with open(history, "a", encoding="utf-8") as file:
+        file.write(message)
+
 
 root = tk.Tk()
 root.title("Chatbox")
