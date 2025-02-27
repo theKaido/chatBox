@@ -6,6 +6,8 @@ username = ""
 password = ""
 history= "history.txt"
 
+
+#AUTHENTIFACTION WINDOW
 def authenticate():
     global username, password
     auth_window = tk.Toplevel(root)
@@ -34,9 +36,10 @@ def authenticate():
 
     root.wait_window(auth_window)
 
-def send_message():
+#FUNCTIONALITY
+def send_message(event=None):
     global username, password
-    message = entry_field.get()
+    message = entry_field.get().strip()
     if message.strip():
         timestamp = datetime.now().strftime("%d/%m/%Y - %H:%M")
         formatted_message = f"{username}[{timestamp}]: {message}\n"
@@ -50,7 +53,16 @@ def save_chat(message):
     with open(history, "a", encoding="utf-8") as file:
         file.write(message)
 
+def load_chat():
+    with open(history, "r", encoding="utf-8") as file:
+        if file:
+            chat_history = file.read()
+            chat_display.insert(tk.END, chat_history)
+            chat_display.yview(tk.END)
+        else:
+            pass
 
+#MAIN WINDOWS
 root = tk.Tk()
 root.title("Chatbox")
 root.geometry("800x500")
@@ -61,8 +73,11 @@ authenticate()
 chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, state='normal', width=100, height=30)
 chat_display.pack(pady=10, padx=10)
 
+load_chat()
+
 entry_field = tk.Entry(root, width=70)
 entry_field.pack(pady=5)
+entry_field.bind("<Return>",send_message)
 
 send_button = tk.Button(root, text="Send", command=send_message)
 send_button.pack(pady=5)
