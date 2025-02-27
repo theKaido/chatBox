@@ -62,6 +62,14 @@ def load_chat():
         else:
             pass
 
+def clear_chat():
+    confirm = messagebox.askyesno("Confirmation","Voulez-vous vraiment effacer l'historique du chat ?")
+    if confirm:
+        chat_display.delete('1.0', tk.END)
+        open(history, "w").close()
+        messagebox.showinfo("Succès","Historique du chat effacé.")
+
+
 #MAIN WINDOWS
 root = tk.Tk()
 root.title("Chatbox")
@@ -79,8 +87,13 @@ entry_field = tk.Entry(root, width=70)
 entry_field.pack(pady=5)
 entry_field.bind("<Return>",send_message)
 
-send_button = tk.Button(root, text="Send", command=send_message)
-send_button.pack(pady=5)
+button_frame = tk.Frame(root)
+button_frame.pack(pady=5)
+
+send_button = tk.Button(button_frame, text="Envoyer", command=send_message)
+send_button.grid(row=0, column=0, padx=5)
+
+clear_button = tk.Button(button_frame, text="Effacer l'historique", command=clear_chat)
+clear_button.grid(row=0, column=1, padx=5)
 
 root.mainloop()
-
