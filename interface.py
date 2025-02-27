@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import scrolledtext, messagebox
+from datetime import date, datetime
 
 username = ""
 password = ""
@@ -36,7 +37,7 @@ def send_message():
     global username, password
     message = entry_field.get()
     if message.strip():
-        chat_display.insert(tk.END, f"{username}: {message}\n")
+        chat_display.insert(tk.END, f"{username}[{datetime.now().strftime("%d/%m/%Y - %H:%M")}]: {message}\n")
         entry_field.delete(0, tk.END)
         chat_display.yview(tk.END)
 
