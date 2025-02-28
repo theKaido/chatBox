@@ -1,5 +1,9 @@
-import socket, select
+import socket, select, json
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
 from Logger import info_log, warning_log, error_log
+from Client import Client
+from EventDispatcher import dispatch
 
 PORT = 8000
 IP = '0.0.0.0'
@@ -11,7 +15,8 @@ class Server:
         self.epoll = select.epoll()
         self.init_socket()
         self.init_epoll()
-        self.connections = {}
+        self.clients = {}
+        self.generate_key()
 
     def init_socket(self):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -24,6 +29,25 @@ class Server:
     def init_epoll(self):
         self.epoll.register(self.socket.fileno(), select.EPOLLIN)
 
+    def generate_key(self):
+        self.private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048
+        )
+
+        self.public_key = self.private_key.public_key()
+
+        self.private_pem = self.private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+
+        self.public_pem = self.public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+
     def init_connection(self):
         connection, address = self.socket.accept()
         connection.setblocking(False)
@@ -32,15 +56,15 @@ class Server:
 
         fd = connection.fileno()
         self.epoll.register(fd, select.EPOLLIN)
-        self.connections[fd] = connection
+        self.clients[fd] = Client(connection)
         #requests[fd] = ''
         #responses[fd] = ''
 
     def shutdown(self):
         warning_log("Shutting down...")
-        for k in self.connections:
+        for k in self.clients:
             self.epoll.unregister(k)
-            self.connections[k].close()
+            self.connections[k].connection.close()
         self.epoll.unregister(self.socket.fileno())
         try:
             self.socket.shutdown(socket.SHUT_RDWR)
@@ -50,21 +74,30 @@ class Server:
         self.socket.close()
 
     def receive(self, fileno):
-        warning_log("Received from", fileno)
+        #warning_log("Received from", fileno)
         self.epoll.modify(fileno, select.EPOLLOUT)
-        wholedata = ""
+        byte_data = b""
         while 1:
             try:
-                data = self.connections[fileno].recv(128)
+                data = self.clients[fileno].connection.recv(128)
                 if not data: break
-                wholedata += data.decode('utf-8', errors='ignore')
+                byte_data += data
             except BlockingIOError:
                 break
-        info_log("Received :", wholedata.replace("\n",""))
+        json_data = byte_data.decode('utf-8')
+        try:
+            json_message = json.loads(json_data)
+            self.process_message(fileno, json_message)
+        except Exception as e:
+            pass
 
-    def send(self, fileno):
-        warning_log("Send for", fileno)
+    def send(self, fileno, json_message):
+        #warning_log("Send for", fileno)
         self.epoll.modify(fileno, select.EPOLLIN)
+
+
+    def process_message(self, fileno, json_message):
+        dispatch(self, fileno, json_message)
 
     def serve(self):
         info_log("Started listening",IP,"on port", PORT)
@@ -77,4 +110,4 @@ class Server:
                 elif event & select.EPOLLIN:
                     self.receive(connection_eno)
                 elif event & select.EPOLLOUT:
-                    self.send(connection_eno)
+                    pass#self.send(connection_eno)
