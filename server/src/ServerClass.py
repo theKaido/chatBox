@@ -1,8 +1,8 @@
 import socket, select, json
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization
 from Logger import info_log, warning_log, error_log
-from Client import Client
+from Client import Client, STATE_AWAIT_FOR_SERVER_KEY
 from EventDispatcher import dispatch_on_receive
 from Message import *
 
@@ -50,9 +50,13 @@ class Server:
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         )
 
-    def generate_key_handshake(self, client):
+    def generate_key_handshake(self):
         return generate_message_template(STATE_KEY_MESSAGE_SERVER, {
-            "key": self.public_pem.decode("utf-8"),
+            "key": self.public_pem.decode("utf-8")
+        })
+    
+    def generate_token_answer(self, client):
+        return generate_message_template(STATE_KEY_TOKEN_SERVER, {
             "token": client.get_token()
         })
 
@@ -80,7 +84,24 @@ class Server:
         self.epoll.close()
         self.socket.close()
 
+    def pop_user(self, fileno):
+        try:
+            self.clients[fileno].close()
+            self.clients.pop(fileno)
+        except Exception:
+            try: self.clients.pop(fileno) 
+            except Exception: return
+
+    def add_message(self,username, message, fileno_sender):
+        for client_eno, client in self.clients.items():
+            if(client_eno == fileno_sender): continue
+            client.add_message(username, message)
+
+
     def receive(self, fileno):
+        if(self.clients[fileno].is_behind()):
+            self.epoll.modify(fileno, select.EPOLLOUT)
+            return
         byte_data = b""
         while 1:
             try:
@@ -89,8 +110,22 @@ class Server:
                 byte_data += data
             except BlockingIOError:
                 break
+            except Exception:
+                try:
+                    self.clients[fileno].connection.close()
+                    self.clients.pop(fileno)
+                    return
+                except Exception:
+                    self.clients.pop(fileno)
+                    return
         #If nothing received do nothing
         if(len(byte_data) == 0): return
+
+        if(self.clients[fileno].state != STATE_AWAIT_FOR_SERVER_KEY):
+            byte_data = self.private_key.decrypt(
+                byte_data,
+                padding.PKCS1v15()
+            )
         json_data = byte_data.decode('utf-8')
         try:
             json_message = json.loads(json_data)
@@ -99,10 +134,12 @@ class Server:
             error_log(e)
 
     def send(self, client, fileno):
-        #warning_log("Send for", fileno)
-        self.epoll.modify(fileno, select.EPOLLIN)
         client.send()
+        self.epoll.modify(fileno, select.EPOLLIN)
 
+    def dispatch_mbox(self):
+        for client_eno, client in self.clients.items():
+            client.dispatch_mailbox()
 
     def process_message(self, fileno, json_message):
         dispatch_on_receive(self, fileno, json_message)
@@ -119,3 +156,5 @@ class Server:
                     self.receive(connection_eno)
                 elif event & select.EPOLLOUT:
                     self.send(self.clients[connection_eno], connection_eno)
+
+            self.dispatch_mbox()

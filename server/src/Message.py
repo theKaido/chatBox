@@ -4,24 +4,32 @@ STATE_KEY_MESSAGE_CLIENT    =           "INITIALISATION.CLIENT_PUBLIC_KEY"
 #    }
 STATE_KEY_MESSAGE_SERVER    =           "INITIALISATION.SERVER_PUBLIC_KEY"
 #    "content": {
-#        "key": "",
+#        "key": ""
+#    }
+STATE_AWAIT_TOKEN_CLIENT    =           "INITIALISATION.AWAIT_TOKEN"
+#    "content": {}
+STATE_KEY_TOKEN_SERVER      =           "INITIALISATION.TOKEN"
+#    "content": {
 #        "token": ""
 #    }
 STATE_MESSAGE               =           "MESSAGE"
 #    "content": {
-#        "security-token": "token",
-#        "message": "",
-#        "room": ""
+#        "security-token": "",
+#        "user": "",
+#        "message": ""
 #    }
 STATE_ACK                   =           "ACK"
 #    "content": {
-#        "status": "ok"
+#        "security-token": ""
 #    }
 STATE_NACK                  =           "NACK"
 #    "content": {
-#        "status": "notok"
+#        "security-token": ""
 #    }
-
+STATE_DISCONNECT            =           "DISCONNECT"
+#    "content": {
+#        "security-token": ""
+#    }
 def generate_message_template(state, content):
     return {
         "state": state,
