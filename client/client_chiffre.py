@@ -1,11 +1,11 @@
-import socket
+import socket, select
 import json
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
-from fichier_json import generate_message_template, STATE_ACK, STATE_KEY_MESSAGE_CLIENT, STATE_KEY_MESSAGE_SERVER, STATE_MESSAGE, STATE_NACK
+from json_state import generate_message_template, STATE_ACK, STATE_KEY_MESSAGE_CLIENT, STATE_KEY_MESSAGE_SERVER, STATE_MESSAGE, STATE_NACK
 
 class Client:
-    def __init__(self, host='polaris.xcxhollow.com', port=8000):
+    def __init__(self, host='0.0.0.0', port=8000):
         self.host = host
         self.port = port
         self.socket = None
@@ -16,6 +16,7 @@ class Client:
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((self.host, self.port))
+            self.socket.setblocking(False)
             print(f"Connected to {self.host}:{self.port}")
         except Exception as e:
             print(f"Failed to connect: {e}")
@@ -29,12 +30,24 @@ class Client:
     
     
     def receive(self, buffer_size=1024):
-        """Receives data from the server."""
-        try:
-            return self.socket.recv(buffer_size).decode('utf-8')
-        except Exception as e:
-            print(f"Error receiving data: {e}")
-            return None
+        byte_data = b""
+
+        ready = select.select([self.socket], [], [], 5000)  # Attente max `timeout` secondes
+        if ready[0]:  # Si le socket est prêt à lire
+            try:
+                byte_data = self.socket.recv(buffer_size)
+            except Exception as e:
+                print(f"Receive error: {e}")
+
+        if byte_data:
+            try:
+                json_message = json.loads(byte_data.decode('utf-8'))
+                print("Message reçu :", json_message)
+                return json_message
+            except json.JSONDecodeError:
+                print("Erreur de décodage JSON")
+
+        return None
     
     def close(self):
         """Closes the connection."""
@@ -72,6 +85,7 @@ if __name__ == "__main__":
         client.send_json(generate_message_template(STATE_KEY_MESSAGE_CLIENT, {
             "key": public_pem.decode('utf-8')
         }))
+        client.receive()
         client.close()
     except KeyboardInterrupt:
         client.close()

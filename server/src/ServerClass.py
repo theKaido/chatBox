@@ -3,7 +3,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from Logger import info_log, warning_log, error_log
 from Client import Client
-from EventDispatcher import dispatch
+from EventDispatcher import dispatch_on_receive
+from Message import *
 
 PORT = 8000
 IP = '0.0.0.0'
@@ -11,6 +12,7 @@ IP = '0.0.0.0'
 class Server:
 
     def __init__(self):
+        self.conn_counter = 0
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.epoll = select.epoll()
         self.init_socket()
@@ -48,7 +50,14 @@ class Server:
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         )
 
+    def generate_key_handshake(self, client):
+        return generate_message_template(STATE_KEY_MESSAGE_SERVER, {
+            "key": self.public_pem.decode("utf-8"),
+            "token": client.get_token()
+        })
+
     def init_connection(self):
+        self.conn_counter = self.conn_counter + 1
         connection, address = self.socket.accept()
         connection.setblocking(False)
 
@@ -56,9 +65,7 @@ class Server:
 
         fd = connection.fileno()
         self.epoll.register(fd, select.EPOLLIN)
-        self.clients[fd] = Client(connection)
-        #requests[fd] = ''
-        #responses[fd] = ''
+        self.clients[fd] = Client(connection, self.conn_counter)
 
     def shutdown(self):
         warning_log("Shutting down...")
@@ -74,8 +81,6 @@ class Server:
         self.socket.close()
 
     def receive(self, fileno):
-        #warning_log("Received from", fileno)
-        self.epoll.modify(fileno, select.EPOLLOUT)
         byte_data = b""
         while 1:
             try:
@@ -84,20 +89,23 @@ class Server:
                 byte_data += data
             except BlockingIOError:
                 break
+        #If nothing received do nothing
+        if(len(byte_data) == 0): return
         json_data = byte_data.decode('utf-8')
         try:
             json_message = json.loads(json_data)
             self.process_message(fileno, json_message)
         except Exception as e:
-            pass
+            error_log(e)
 
-    def send(self, fileno, json_message):
+    def send(self, client, fileno):
         #warning_log("Send for", fileno)
         self.epoll.modify(fileno, select.EPOLLIN)
+        client.send()
 
 
     def process_message(self, fileno, json_message):
-        dispatch(self, fileno, json_message)
+        dispatch_on_receive(self, fileno, json_message)
 
     def serve(self):
         info_log("Started listening",IP,"on port", PORT)
@@ -110,4 +118,4 @@ class Server:
                 elif event & select.EPOLLIN:
                     self.receive(connection_eno)
                 elif event & select.EPOLLOUT:
-                    pass#self.send(connection_eno)
+                    self.send(self.clients[connection_eno], connection_eno)

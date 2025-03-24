@@ -1,2 +1,3 @@
 server/lib/**
 server/src/__pycache__
+**.pyc
