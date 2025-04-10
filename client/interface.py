@@ -124,6 +124,13 @@ send_button.grid(row=0, column=0, padx=5)
 clear_button = tk.Button(button_frame, text="Effacer l'historique", command=clear_chat)
 clear_button.grid(row=0, column=1, padx=5)
 
+def do_exit():
+    global client, root
+    try:
+        client.close()
+    except Exception: pass
+    root.destroy()
 
+root.protocol("WM_DELETE_WINDOW", do_exit)
 
 root.mainloop()

@@ -106,6 +106,7 @@ class Client:
     def close(self):
         """Closes the connection."""
         if self.socket:
+            self.send_json(generate_message_template(STATE_DISCONNECT, {"security-token": self.token}))
             self.socket.close()
             print("Connection closed.")
 
@@ -133,7 +134,6 @@ class Client:
                 print(e)
                 self.init_routine(dest_func)
         except KeyboardInterrupt:
-            self.send_json(generate_message_template(STATE_DISCONNECT, {"security-token": self.token}))
             self.close()
         except RuntimeError:
             print("Exiting...")
@@ -142,7 +142,7 @@ class Client:
         print("Started listening")
         while True:
             message = self.receive()
-            if message == None: raise RuntimeError()
+            if message == None: continue
             if message["state"] == STATE_MESSAGE:
                 if(self.display_fun != None): self.display_fun(message["content"]["user"],message["content"]["message"])
                 else:
