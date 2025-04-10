@@ -157,5 +157,7 @@ class Server:
                     self.receive(connection_eno)
                 elif event & select.EPOLLOUT:
                     self.send(self.clients[connection_eno], connection_eno)
-
-            self.dispatch_mbox()
+            try:
+                self.dispatch_mbox()
+            except Exception:
+                continue

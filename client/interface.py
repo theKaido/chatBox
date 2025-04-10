@@ -106,7 +106,7 @@ def add_message(user, msg):
 
 load_chat()
 
-chat_display.insert(tk.END, "==========================")
+chat_display.insert(tk.END, "==========================\n")
 
 client = Client(host, int(port))
 client.init_routine(add_message)
