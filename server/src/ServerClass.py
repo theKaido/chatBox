@@ -131,7 +131,8 @@ class Server:
             json_message = json.loads(json_data)
             self.process_message(fileno, json_message)
         except Exception as e:
-            error_log(e)
+            #error_log(e)
+            pass
 
     def send(self, client, fileno):
         client.send()

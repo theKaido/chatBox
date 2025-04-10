@@ -4,15 +4,17 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization
 from json_state import *
 import threading
+from datetime import datetime
 
 class Client:
-    def __init__(self, host='0.0.0.0', port=8000):
+    def __init__(self, host='0.0.0.0', port=8000, username="default"):
         self.host = host
         self.port = port
         self.socket = None
         self.is_secure_canal = False
         self.init_key()
         self.connect()
+        self.username = username
     
     def init_key(self):
         self.private_key = rsa.generate_private_key(
@@ -107,7 +109,7 @@ class Client:
             self.socket.close()
             print("Connection closed.")
 
-    def init_routine(self,dest_func):
+    def init_routine(self,dest_func=None):
         try:
             try:
                 self.send_json(generate_message_template(STATE_KEY_MESSAGE_CLIENT, {
@@ -125,6 +127,8 @@ class Client:
                 self.send_json(generate_message_template(STATE_ACK, {"security-token": self.token}))
                 self.display_fun = dest_func
                 threading.Thread(target=self.run_listen_routine, daemon=True).start()
+                if(self.display_fun == None):
+                    self.run_send_routine()
             except ResourceWarning as e:
                 print(e)
                 self.init_routine(dest_func)
@@ -140,7 +144,15 @@ class Client:
             message = self.receive()
             if message == None: raise RuntimeError()
             if message["state"] == STATE_MESSAGE:
-                self.display_fun(message["content"]["user"],message["content"]["message"])
+                if(self.display_fun != None): self.display_fun(message["content"]["user"],message["content"]["message"])
+                else:
+                    print(f"<{str(datetime.now().hour)+":"+str(datetime.now().minute)+":"+str(datetime.now().second)}>[{message["content"]["user"]}] {message["content"]["message"]}")
+    
+    def run_send_routine(self):
+        while True:
+            msg = input()
+            self.send_msg(self.username, msg)
+            print(f"<{str(datetime.now().hour)+":"+str(datetime.now().minute)+":"+str(datetime.now().second)}>[{self.username}] {msg}")
 
     def send_msg(self, username, text):
         self.send_json(generate_message_template(STATE_MESSAGE, {"security-token": self.token, "user":username ,"message": text}))
