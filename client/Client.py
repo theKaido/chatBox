@@ -146,13 +146,17 @@ class Client:
             if message["state"] == STATE_MESSAGE:
                 if(self.display_fun != None): self.display_fun(message["content"]["user"],message["content"]["message"])
                 else:
-                    print(f"<{str(datetime.now().hour)+':'+str(datetime.now().minute)+':'+str(datetime.now().second)}>[{message["content"]["user"]}] {message["content"]["message"]}")
+                    user = message["content"]["user"]
+                    msg = message["content"]["message"]
+                    date = str(datetime.now().hour)+':'+str(datetime.now().minute)+':'+str(datetime.now().second)
+                    print(f"<{date}>[{user}] {msg}")
     
     def run_send_routine(self):
         while True:
             msg = input()
+            date = str(datetime.now().hour)+':'+str(datetime.now().minute)+':'+str(datetime.now().second)
             self.send_msg(self.username, msg)
-            print(f"<{str(datetime.now().hour)+':'+str(datetime.now().minute)+':'+str(datetime.now().second)}>[{self.username}] {msg}")
+            print(f"<{date}>[{self.username}] {msg}")
 
     def send_msg(self, username, text):
         self.send_json(generate_message_template(STATE_MESSAGE, {"security-token": self.token, "user":username ,"message": text}))
