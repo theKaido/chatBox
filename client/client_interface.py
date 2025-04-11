@@ -1,136 +1,144 @@
 import tkinter as tk
-from Client import *
 from tkinter import scrolledtext, messagebox
-from datetime import date, datetime
+from Client import *
+from datetime import datetime
 import os
-import threading
 
+# === Variables globales ===
 username = ""
 host = ""
 port = ""
-history= "history.txt"
+history = "history.txt"
 client = None
 
 
-
-
-#AUTHENTIFACTION WINDOW
-def authenticate():
+# === Fenêtre d'authentification ===
+def show_auth_window():
     global username, host, port
-    auth_window = tk.Toplevel(root)
-    auth_window.title("Authentification")
-    auth_window.geometry("300x200")
+    auth = tk.Toplevel(root)
+    auth.title("Authentification")
+    auth.geometry("300x420")
+    auth.resizable(False, False)
 
-    tk.Label(auth_window, text="Nom d'utilisateur:").pack(pady=5)
-    username_entry = tk.Entry(auth_window)
+    tk.Label(auth, text="Nom d'utilisateur :").pack(pady=(10, 0))
+    username_entry = tk.Entry(auth)
     username_entry.pack(pady=5)
+    username_entry.focus()
 
-    tk.Label(auth_window, text="Hôte:").pack(pady=5)
-    host_entry = tk.Entry(auth_window)
+    tk.Label(auth, text="Hôte :").pack()
+    host_entry = tk.Entry(auth)
     host_entry.pack(pady=5)
 
-    tk.Label(auth_window, text="Port:").pack(pady=5)
-    port_entry = tk.Entry(auth_window)
+    tk.Label(auth, text="Port :").pack()
+    port_entry = tk.Entry(auth)
     port_entry.pack(pady=5)
 
-    def submit(user, hoste, porte):
-        global username, host, port, client
-        if user and hoste and porte and porte.isdigit():
-            username = user
-            host = hoste
-            port = porte
-            auth_window.destroy()
+    def submit():
+        nonlocal username_entry, host_entry, port_entry
+        u, h, p = username_entry.get(), host_entry.get(), port_entry.get()
+        if u and h and p.isdigit():
+            # mise à jour globale
+            nonlocal auth
+            global username, host, port
+            username, host, port = u, h, int(p)
+            auth.destroy()
         else:
-            messagebox.showerror("Erreur", "Invalid entries, please verify...")
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs correctement.")
 
-    submit_button = tk.Button(auth_window, text="Valider", command=lambda: submit(username_entry.get(), host_entry.get(), port_entry.get()))
-    submit_button.pack(pady=10)
+    tk.Button(auth, text="Se connecter", command=submit).pack(pady=10)
+    root.wait_window(auth)
 
-    root.wait_window(auth_window)
 
-#FUNCTIONALITY
+# === Gestion du chat ===
 def send_message(event=None):
-    global username, client
     message = entry_field.get().strip()
-    if message.strip():
+    if message:
         timestamp = datetime.now().strftime("%d/%m/%Y - %H:%M")
-        formatted_message = f"{username}[{timestamp}]: {message}\n"
-        chat_display.insert(tk.END, formatted_message)
-        entry_field.delete(0, tk.END)
+        msg = f"{username}[{timestamp}]: {message}\n"
+        chat_display.insert(tk.END, msg)
         chat_display.yview(tk.END)
-        save_chat(formatted_message)
-        client.send_msg(username, message)
+        entry_field.delete(0, tk.END)
+        save_chat(msg)
+        try:
+            client.send_msg(username, message)
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Échec de l'envoi : {e}")
+
+def add_message(sender, msg):
+    timestamp = datetime.now().strftime("%d/%m/%Y - %H:%M")
+    formatted = f"{sender}[{timestamp}]: {msg}\n"
+    chat_display.insert(tk.END, formatted)
+    chat_display.yview(tk.END)
 
 def save_chat(message):
     with open(history, "a", encoding="utf-8") as file:
         file.write(message)
 
 def load_chat():
-    if not os.path.exists(history):
-        with open(history, "w", encoding="utf-8") as file:
-            pass
-
-    with open(history, "r", encoding="utf-8") as file:
-        chat_history = file.read()
-        chat_display.insert(tk.END, chat_history)
-        chat_display.yview(tk.END)
+    if os.path.exists(history):
+        with open(history, "r", encoding="utf-8") as file:
+            chat_display.insert(tk.END, file.read())
+            chat_display.insert(tk.END, "\n==========================\n")
+            chat_display.yview(tk.END)
 
 def clear_chat():
-    confirm = messagebox.askyesno("Confirmation","Voulez-vous vraiment effacer l'historique du chat ?")
-    if confirm:
+    if messagebox.askyesno("Confirmation", "Effacer l'historique du chat ?"):
+        open(history, "w", encoding="utf-8").close()
         chat_display.delete('1.0', tk.END)
-        open(history, "w").close()
-        messagebox.showinfo("Succès","Historique du chat effacé.")
+        messagebox.showinfo("Succès", "Historique effacé.")
 
-
-
-#MAIN WINDOWS
-root = tk.Tk()
-root.title("Chatbox")
-root.geometry("800x500")
-
-
-authenticate()
-
-chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, state='normal', width=100, height=30)
-chat_display.pack(pady=10, padx=10)
-#chat_display.config(state=tk.DISABLED)
-
-def add_message(user, msg):
-    global chat_display
-    timestamp = datetime.now().strftime("%d/%m/%Y - %H:%M")
-    formatted_message = f"{user}[{timestamp}]: {msg}\n"
-    chat_display.insert(tk.END, formatted_message)
-    entry_field.delete(0, tk.END)
-    chat_display.yview(tk.END)
-
-load_chat()
-
-chat_display.insert(tk.END, "==========================\n")
-
-client = Client(host, int(port))
-client.init_routine(add_message)
-
-entry_field = tk.Entry(root, width=70)
-entry_field.pack(pady=5)
-entry_field.bind("<Return>",send_message)
-
-button_frame = tk.Frame(root)
-button_frame.pack(pady=5)
-
-send_button = tk.Button(button_frame, text="Envoyer", command=send_message)
-send_button.grid(row=0, column=0, padx=5)
-
-clear_button = tk.Button(button_frame, text="Effacer l'historique", command=clear_chat)
-clear_button.grid(row=0, column=1, padx=5)
-
-def do_exit():
-    global client, root
+def close_app():
     try:
         client.close()
-    except Exception: pass
+    except:
+        pass
     root.destroy()
 
-root.protocol("WM_DELETE_WINDOW", do_exit)
+
+# === Interface principale ===
+root = tk.Tk()
+root.title("Chat sécurisé")
+root.geometry("800x500")
+root.configure(bg="#f0f0f0")
+root.protocol("WM_DELETE_WINDOW", close_app)
+
+show_auth_window()
+
+chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=100, height=25, font=("Helvetica", 10))
+chat_display.pack(padx=10, pady=(10, 5))
+chat_display.config(state=tk.NORMAL)
+
+entry_field = tk.Entry(root, width=80, font=("Helvetica", 10))
+entry_field.pack(pady=5)
+entry_field.bind("<Return>", send_message)
+
+button_frame = tk.Frame(root, bg="#f0f0f0")
+button_frame.pack(pady=5)
+
+default_btn_style = {
+    "font": ("Helvetica", 11),
+    "bg": "#e8e8e8",   # gris clair typique mac
+    "activebackground": "#d0d0d0",
+    "bd": 0,            # aucune bordure
+    "relief": "flat",
+    "highlightthickness": 0,
+    "cursor": "hand2"
+}
+
+send_btn = tk.Button(button_frame, text="Envoyer", command=send_message, **default_btn_style)
+send_btn.grid(row=0, column=0, padx=5)
+
+clear_btn = tk.Button(button_frame, text="Effacer historique", command=clear_chat, **default_btn_style)
+clear_btn.grid(row=0, column=1, padx=5)
+
+
+# === Lancement du client et chargement du chat ===
+load_chat()
+try:
+    client = Client(host, port)
+    client.init_routine(add_message)
+except Exception as e:
+    messagebox.showerror("Erreur de connexion", f"Impossible de se connecter au serveur :\n{e}")
+    root.destroy()
 
 root.mainloop()
