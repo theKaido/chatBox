@@ -17,7 +17,7 @@ def show_auth_window():
     global username, host, port
     auth = tk.Toplevel(root)
     auth.title("Authentification")
-    auth.geometry("300x420")
+    auth.geometry("300x320")
     auth.resizable(False, False)
 
     tk.Label(auth, text="Nom d'utilisateur :").pack(pady=(10, 0))
