@@ -11,10 +11,12 @@ IP = '0.0.0.0'
 
 class Server:
 
-    def __init__(self):
+    def __init__(self, ip = IP, port = PORT):
         self.conn_counter = 0
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.epoll = select.epoll()
+        self.ip = ip
+        self.port = port
         self.init_socket()
         self.init_epoll()
         self.clients = {}
@@ -23,7 +25,7 @@ class Server:
     def init_socket(self):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        self.socket.bind((IP, PORT))
+        self.socket.bind((self.ip, self.port))
         self.socket.listen(5)
         self.socket.setblocking(False)
         self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -146,7 +148,7 @@ class Server:
         dispatch_on_receive(self, fileno, json_message)
 
     def serve(self):
-        info_log("Started listening",IP,"on port", PORT)
+        info_log("Started listening",self.ip,"on port", self.port)
         while True:
             events = self.epoll.poll(1)
 
